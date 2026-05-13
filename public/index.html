@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi Func Bot Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-robot"></i>
+                    <span>BotPanel</span>
+                </div>
+                <button id="toggle-sidebar" class="toggle-btn">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+            </div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="active" data-tab="dashboard">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Genel Durum</span>
+                    </li>
+                    <li data-tab="chat">
+                        <i class="fas fa-comments"></i>
+                        <span>Sohbet</span>
+                    </li>
+                    <li data-tab="chests">
+                        <i class="fas fa-box"></i>
+                        <span>Sandık Deposu</span>
+                    </li>
+                    <li data-tab="courier">
+                        <i class="fas fa-shipping-fast"></i>
+                        <span>Kurye (Teslimat)</span>
+                    </li>
+                </ul>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="theme-selector">
+                    <i class="fas fa-paint-brush"></i>
+                    <select id="theme-select">
+                        <option value="glass">Glassmorphism (Varsayılan)</option>
+                        <option value="dark">Karanlık (AMOLED)</option>
+                        <option value="light">Aydınlık Mod</option>
+                        <option value="hacker">Hacker (Terminal)</option>
+                        <option value="mc">Minecraft Classic</option>
+                    </select>
+                </div>
+                <div class="status-indicator" style="margin-top:10px;">
+                    <span class="dot online"></span>
+                    <span>Sistem Aktif</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="content">
+            <!-- Dashboard Tab -->
+            <section id="dashboard" class="tab-content active">
+                <header class="content-header">
+                    <h1>Genel Durum</h1>
+                    <div class="bot-controls">
+                        <div id="bot-status-badge" class="badge status-offline">Durum: Çevrimdışı</div>
+                        <div id="server-badge" class="badge">Sunucu: Bekleniyor</div>
+                        <button id="btn-start" class="btn-control start"><i class="fas fa-play"></i> Başlat</button>
+                        <button id="btn-stop" class="btn-control stop" disabled><i class="fas fa-stop"></i> Durdur</button>
+                    </div>
+                </header>
+
+                <!-- OTONOM KONTROL PANELİ -->
+                <div class="control-panel glass">
+                    <h2><i class="fas fa-cogs"></i> Otonom Modlar</h2>
+                    <div class="toggles-grid">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-reconnect">
+                            <span class="slider"></span>
+                            <span class="label-text">Oto-Yeniden Bağlan (Auto-Reconnect)</span>
+                        </label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-towny">
+                            <span class="slider"></span>
+                            <span class="label-text">Oto-Towny Girişi</span>
+                        </label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-autoeat">
+                            <span class="slider"></span>
+                            <span class="label-text">Oto-Yemek Yeme</span>
+                        </label>
+                        <button id="btn-manual-towny" class="btn-control manual-btn"><i class="fas fa-sign-in-alt"></i> Towny'ye Hemen Gir</button>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card glass">
+                        <div class="stat-icon health-icon"><i class="fas fa-heart"></i></div>
+                        <div class="stat-info">
+                            <h3>Sağlık</h3>
+                            <div class="progress-container">
+                                <div id="health-bar" class="progress health" style="width: 0%"></div>
+                            </div>
+                            <span id="health-text">0 / 20</span>
+                        </div>
+                    </div>
+                    <div class="stat-card glass">
+                        <div class="stat-icon food-icon"><i class="fas fa-apple-alt"></i></div>
+                        <div class="stat-info">
+                            <h3>Açlık</h3>
+                            <div class="progress-container">
+                                <div id="food-bar" class="progress food" style="width: 0%"></div>
+                            </div>
+                            <span id="food-text">0 / 20</span>
+                        </div>
+                    </div>
+                    <div class="stat-card glass">
+                        <div class="stat-icon pos-icon"><i class="fas fa-location-arrow"></i></div>
+                        <div class="stat-info">
+                            <h3>Konum (XYZ)</h3>
+                            <p id="pos-text">Yükleniyor...</p>
+                        </div>
+                    </div>
+                    <div class="stat-card glass">
+                        <div class="stat-icon user-icon"><i class="fas fa-user"></i></div>
+                        <div class="stat-info">
+                            <h3>Kullanıcı</h3>
+                            <p id="username-text">Yükleniyor...</p>
+                        </div>
+                    </div>
+                    <div class="stat-card glass">
+                        <div class="stat-icon tps-icon"><i class="fas fa-bolt"></i></div>
+                        <div class="stat-info">
+                            <h3>TPS</h3>
+                            <p id="tps-text">20.0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card glass">
+                        <div class="stat-icon ping-icon"><i class="fas fa-wifi"></i></div>
+                        <div class="stat-info">
+                            <h3>Ping</h3>
+                            <p id="ping-text">0 ms</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="lower-grid">
+                    <div class="equipment-card glass">
+                        <h2>Zırh & Ekipman</h2>
+                        <div class="eq-slots">
+                            <div class="slot" title="Kask"><i class="fas fa-hard-hat"></i> <span id="eq-helmet">Yok</span></div>
+                            <div class="slot" title="Zırh"><i class="fas fa-tshirt"></i> <span id="eq-chest">Yok</span></div>
+                            <div class="slot" title="Pantolon"><i class="fas fa-socks"></i> <span id="eq-legs">Yok</span></div>
+                            <div class="slot" title="Botlar"><i class="fas fa-boot"></i> <span id="eq-boots">Yok</span></div>
+                            <div class="slot active-item" title="Eldeki Eşya"><i class="fas fa-hand-rock"></i> <span id="eq-hand">Boş</span></div>
+                        </div>
+                    </div>
+                    <div class="inventory-preview glass">
+                        <h2>Envanter Çantası <small>(Eşyaya tıklayıp yere atabilirsiniz)</small></h2>
+                        <div id="inv-list" class="inv-grid interactive">
+                            <!-- Eşyalar buraya gelecek -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Yeni Alt Izgara: Scoreboard ve Viewer -->
+                <div class="features-grid">
+                    <div class="scoreboard-card glass">
+                        <h2><i class="fas fa-list-ol"></i> Sunucu Bilgi Panosu (Scoreboard)</h2>
+                        <div id="scoreboard-content" class="scoreboard-content">
+                            <div class="loading-text">Tablo verisi bekleniyor...</div>
+                        </div>
+                    </div>
+                    
+                    <div class="viewer-card glass">
+                        <h2><i class="fas fa-map"></i> Canlı Kamera (Harita)</h2>
+                        <div class="iframe-container">
+                            <iframe id="viewer-iframe" src="" frameborder="0" title="Live Viewer"></iframe>
+                            <div class="viewer-overlay" id="viewer-overlay">
+                                <span>Canlı yayını görmek için botu başlatın. Yüklenmesi birkaç saniye sürebilir.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Chat Tab -->
+            <section id="chat" class="tab-content">
+                <header class="content-header">
+                    <h1>Canlı Sohbet</h1>
+                </header>
+                <div class="chat-wrapper glass">
+                    <div id="chat-box" class="chat-box">
+                        <div class="system-msg">Sohbet sunucusuna bağlanıldı.</div>
+                    </div>
+                    <div class="chat-input-area">
+                        <input type="text" id="chat-input" placeholder="Sunucuya mesaj gönder veya komut yaz...">
+                        <button id="send-btn"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Chests Tab -->
+            <section id="chests" class="tab-content">
+                <header class="content-header">
+                    <h1>Sandık Deposu</h1>
+                    <div class="header-actions">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="item-search" placeholder="Eşya ara...">
+                        </div>
+                        <button id="refresh-chests" class="btn-refresh"><i class="fas fa-sync"></i> Güncelle</button>
+                    </div>
+                </header>
+
+                <div class="chest-tabs">
+                    <button class="chest-tab-btn active" data-target="all-items-view">Tüm Eşyalar</button>
+                    <button class="chest-tab-btn" data-target="by-chest-view">Sandık Görünümü</button>
+                </div>
+
+                <!-- Tüm Eşyalar Görünümü (Grid) -->
+                <div id="all-items-view" class="chest-view-container active glass">
+                    <div class="item-grid" id="all-items-grid">
+                        <div class="loading-text">Yükleniyor...</div>
+                    </div>
+                </div>
+
+                <!-- Sandık Sandık Görünüm -->
+                <div id="by-chest-view" class="chest-view-container" style="display: none;">
+                    <div class="chests-accordion" id="chests-accordion">
+                        <div class="loading-text">Yükleniyor...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Courier Tab -->
+            <section id="courier" class="tab-content">
+                <header class="content-header">
+                    <h1>Kurye (Teslimat Sistemi)</h1>
+                </header>
+                <div class="courier-container glass">
+                    <div class="courier-form">
+                        <div class="form-group autocomplete">
+                            <label><i class="fas fa-cube"></i> Eşya Adı</label>
+                            <input type="text" id="courier-item" placeholder="Örn: stone, diamond_sword" autocomplete="off">
+                            <div id="autocomplete-list" class="autocomplete-items"></div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label><i class="fas fa-sort-numeric-up-alt"></i> Miktar</label>
+                            <input type="number" id="courier-amount" placeholder="Örn: 64" min="1" value="1">
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fas fa-map-marked-alt"></i> Teslimat Hedefi</label>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="targetType" value="player" checked>
+                                    <span>Oyuncuya Götür</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="targetType" value="coordinate">
+                                    <span>Koordinata Bırak</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Target Inputs (Dynamic) -->
+                        <div id="target-player-container" class="form-group">
+                            <label>Oyuncu Adı</label>
+                            <input type="text" id="courier-player" placeholder="Teslim edilecek oyuncunun tam adı">
+                        </div>
+
+                        <div id="target-coord-container" class="form-group" style="display: none;">
+                            <label>Koordinat (X, Y, Z)</label>
+                            <div class="coord-inputs">
+                                <input type="number" id="coord-x" placeholder="X">
+                                <input type="number" id="coord-y" placeholder="Y">
+                                <input type="number" id="coord-z" placeholder="Z">
+                            </div>
+                        </div>
+
+                        <button id="btn-fetch-courier" class="btn-submit"><i class="fas fa-truck"></i> Teslimatı Başlat</button>
+                        
+                        <div id="courier-status" class="courier-status">
+                            <i class="fas fa-info-circle"></i> <span>Kurye beklemede...</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/script.js"></script>
+</body>
+</html>
