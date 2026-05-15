@@ -178,10 +178,10 @@ socket.on('bot_status', (data) => {
             if (data.diggerStats.savedCoordinate) {
                 const pos = data.diggerStats.savedCoordinate;
                 savedPosText.innerText = `X: ${pos.x}, Y: ${pos.y}, Z: ${pos.z}`;
-                savedPosText.style.color = "#10b981"; // Yeşil
+                savedPosText.style.color = "var(--brand-primary)";
             } else {
                 savedPosText.innerText = "Kayıt bulunamadı";
-                savedPosText.style.color = "#ef4444"; // Kırmızı
+                savedPosText.style.color = "var(--brand-danger)";
             }
         }
         
@@ -320,6 +320,14 @@ themeSelect.addEventListener('change', (e) => {
     const val = e.target.value;
     document.body.className = `theme-${val}`;
     localStorage.setItem('bot_theme', val);
+    
+    // Theme switch visual feedback
+    document.body.style.opacity = '0.5';
+    setTimeout(() => {
+        document.body.style.opacity = '1';
+        // Refresh charts if they exist
+        if (typeof loadDiggerCharts === 'function') loadDiggerCharts();
+    }, 50);
 });
 
 // Chat Messages
@@ -575,14 +583,14 @@ btnFetchCourier.addEventListener('click', () => {
 // Receive Courier Status
 socket.on('courier_status', (res) => {
     if (res.success === null) {
-        courierStatus.innerHTML = `<i class="fas fa-spinner fa-spin" style="color:var(--primary-color)"></i> <span>${res.message}</span>`;
+        courierStatus.innerHTML = `<i class="fas fa-spinner fa-spin" style="color:var(--brand-primary)"></i> <span>${res.message}</span>`;
     } else if (res.success) {
-        courierStatus.innerHTML = `<i class="fas fa-check-circle" style="color:#10b981"></i> <span style="color:#10b981">${res.message}</span>`;
+        courierStatus.innerHTML = `<i class="fas fa-check-circle" style="color:var(--brand-primary)"></i> <span style="color:var(--brand-primary)">${res.message}</span>`;
         btnFetchCourier.disabled = false;
         // Stoklar güncellenmiş olabilir
         loadChests();
     } else {
-        courierStatus.innerHTML = `<i class="fas fa-times-circle" style="color:#ef4444"></i> <span style="color:#ef4444">${res.message}</span>`;
+        courierStatus.innerHTML = `<i class="fas fa-times-circle" style="color:var(--brand-danger)"></i> <span style="color:var(--brand-danger)">${res.message}</span>`;
         btnFetchCourier.disabled = false;
     }
 });
@@ -634,11 +642,11 @@ function renderRecentChart(recentData) {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-                y: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#9ca3af' } },
-                x: { grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#9ca3af', maxTicksLimit: 10 } }
+                y: { beginAtZero: true, grid: { color: 'var(--surface-border)' }, ticks: { color: 'var(--text-secondary)' } },
+                x: { grid: { color: 'var(--surface-border)' }, ticks: { color: 'var(--text-secondary)', maxTicksLimit: 10 } }
             },
             plugins: {
-                legend: { labels: { color: '#e5e7eb' } }
+                legend: { labels: { color: 'var(--text-primary)' } }
             }
         }
     });
@@ -672,11 +680,11 @@ function renderDailyChart(dailyData) {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-                y: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#9ca3af' } },
-                x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+                y: { beginAtZero: true, grid: { color: 'var(--surface-border)' }, ticks: { color: 'var(--text-secondary)' } },
+                x: { grid: { display: false }, ticks: { color: 'var(--text-secondary)' } }
             },
             plugins: {
-                legend: { labels: { color: '#e5e7eb' } }
+                legend: { labels: { color: 'var(--text-primary)' } }
             }
         }
     });
