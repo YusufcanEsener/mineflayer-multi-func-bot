@@ -31,6 +31,10 @@
                         <i class="fas fa-comments"></i>
                         <span>Sohbet</span>
                     </li>
+                    <li data-tab="digger">
+                        <i class="fas fa-hammer"></i>
+                        <span>Oto-Kazıcı</span>
+                    </li>
                     <li data-tab="chests">
                         <i class="fas fa-box"></i>
                         <span>Sandık Deposu</span>
@@ -96,6 +100,7 @@
                     </div>
                 </div>
 
+
                 <div class="stats-grid">
                     <div class="stat-card glass">
                         <div class="stat-icon health-icon"><i class="fas fa-heart"></i></div>
@@ -143,6 +148,20 @@
                         <div class="stat-info">
                             <h3>Ping</h3>
                             <p id="ping-text">0 ms</p>
+                        </div>
+                    </div>
+                    <div class="stat-card glass">
+                        <div class="stat-icon" style="background: rgba(16, 185, 129, 0.2); color: #10b981;"><i class="fas fa-clock"></i></div>
+                        <div class="stat-info">
+                            <h3>Açık Kalma</h3>
+                            <p id="uptime-text">0s</p>
+                        </div>
+                    </div>
+                    <div class="stat-card glass">
+                        <div class="stat-icon" style="background: rgba(239, 68, 68, 0.2); color: #ef4444;"><i class="fas fa-unlink"></i></div>
+                        <div class="stat-info">
+                            <h3>Kopma</h3>
+                            <p id="disconnect-text">0</p>
                         </div>
                     </div>
                 </div>
@@ -203,6 +222,75 @@
                 </div>
             </section>
 
+            <!-- Digger Tab -->
+            <section id="digger" class="tab-content">
+                <header class="content-header">
+                    <h1>Oto-Kazıcı Paneli</h1>
+                    <div class="header-actions">
+                        <div id="saved-pos-info" style="margin-right: 15px; font-size: 0.85rem; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2;">
+                            <span style="color: #9ca3af;">Kayıtlı Konum:</span>
+                            <span id="saved-pos-text" style="color: #ef4444; font-weight: bold;">Kayıt bulunamadı</span>
+                        </div>
+                        <button id="btn-save-digger-pos" class="btn-refresh" style="background:#10b981;"><i class="fas fa-map-marker-alt"></i> Mevcut Konumu Kaydet</button>
+                    </div>
+                </header>
+
+                <div class="control-panel glass" style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h2><i class="fas fa-hammer"></i> Oto-Kazıcı (Cobblestone)</h2>
+                        <p style="color: #9ca3af; font-size: 0.9rem; margin-top: 5px;">Kazıcı önce sandıktan uygun kazma alır, ardından kaydedilen hedefe gider.</p>
+                    </div>
+                    <div class="digger-controls" style="display: flex; align-items: center; gap: 10px;">
+                        <button id="btn-digger-start" class="btn-control start"><i class="fas fa-play"></i> Kazıcı Başlat</button>
+                        <button id="btn-digger-stop" class="btn-control stop" disabled><i class="fas fa-stop"></i> Kazıcı Durdur</button>
+                        <div class="digger-stats">
+                            <span id="digger-status" class="badge status-offline">Bekliyor</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); margin-top: 20px;">
+                    <div class="stat-card glass">
+                        <div class="stat-icon" style="background: rgba(16, 185, 129, 0.2); color: #10b981;"><i class="fas fa-cubes"></i></div>
+                        <div class="stat-info">
+                            <h3>Bu Oturumda Kazılan</h3>
+                            <p id="digger-mined" style="font-size: 24px; font-weight: bold;">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card glass">
+                        <div class="stat-icon" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b;"><i class="fas fa-tools"></i></div>
+                        <div class="stat-info">
+                            <h3>Bu Oturumda Kırılan Kazma</h3>
+                            <p id="digger-pickaxes" style="font-size: 24px; font-weight: bold;">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Blok Kırılımı -->
+                <div class="control-panel glass" style="margin-top: 20px;">
+                    <h2><i class="fas fa-th-large"></i> Kazılan Blokların Detayı</h2>
+                    <div id="digger-breakdown" class="inv-grid interactive" style="margin-top: 15px;">
+                        <div class="loading-text" style="grid-column: 1/-1;">Henüz blok kazılmadı...</div>
+                    </div>
+                </div>
+
+                <div class="features-grid" style="margin-top: 20px;">
+                    <div class="scoreboard-card glass">
+                        <h2><i class="fas fa-chart-line"></i> Son Performans (Oturum İçi)</h2>
+                        <div style="position: relative; height: 300px; width: 100%;">
+                            <canvas id="diggerRecentChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="scoreboard-card glass">
+                        <h2><i class="fas fa-calendar-alt"></i> Günlük Toplam Kazı</h2>
+                        <div style="position: relative; height: 300px; width: 100%;">
+                            <canvas id="diggerDailyChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Chests Tab -->
             <section id="chests" class="tab-content">
                 <header class="content-header">
@@ -212,6 +300,7 @@
                             <i class="fas fa-search"></i>
                             <input type="text" id="item-search" placeholder="Eşya ara...">
                         </div>
+                        <button id="btn-scan-chests" class="btn-refresh" style="background:#4f46e5;"><i class="fas fa-radar"></i> Sandıkları Tara</button>
                         <button id="refresh-chests" class="btn-refresh"><i class="fas fa-sync"></i> Güncelle</button>
                     </div>
                 </header>
@@ -295,6 +384,7 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="js/script.js"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 const mineflayer = require('mineflayer');
-const autoeat = require('mineflayer-auto-eat').plugin;
+const autoeat = require('mineflayer-auto-eat').loader;
 const viewer = require('prismarine-viewer').mineflayer;
 const { handleMinecraftChat } = require('./message');
 const { sendToDiscord } = require('./discord');
@@ -8,6 +8,9 @@ const { joinTowny } = require('./gamemodeSelector');
 let botInstance = null;
 let ioInstance = null;
 let reconnectTimeout = null;
+
+let botStartTime = null;
+let disconnectCount = 0;
 
 // Global Bot Config State
 const botConfig = {
@@ -30,15 +33,22 @@ function updateConfig(newConfig) {
     
     if (botInstance && botInstance.autoEat) {
         if (botConfig.autoEat) {
-            botInstance.autoEat.enable();
+            botInstance.autoEat.enableAuto();
         } else {
-            botInstance.autoEat.disable();
+            botInstance.autoEat.disableAuto();
         }
     }
 }
 
 function getConfig() {
     return botConfig;
+}
+
+function getBotStats() {
+    return {
+        uptime: botStartTime ? Date.now() - botStartTime : 0,
+        disconnects: disconnectCount
+    };
 }
 
 function startBot(isReconnect = false) {
@@ -54,6 +64,7 @@ function startBot(isReconnect = false) {
         username: process.env.BOT_USERNAME,
         port: parseInt(process.env.PORT) || 25565,
         version: process.env.VERSION === 'false' ? false : process.env.VERSION,
+        hideErrors: true
     });
 
     // Plugin Yüklemeleri
@@ -75,14 +86,68 @@ function startBot(isReconnect = false) {
 
     handleMinecraftChat(botInstance, sendToDiscord);
 
+    // Tüm gelen paketleri görmek için doğru listener (_client)
+    const seenPackets = new Set();
+    
+    // Mineflayer'ın kendi Team sistemi NBT verilerinde (1.21) çöktüğü için takımları kendimiz tutacağız
+    botInstance.myTeamMap = {};
+
+    botInstance._client.on('packet', (data, meta) => {
+        if (!seenPackets.has(meta.name)) {
+            seenPackets.add(meta.name);
+            if (meta.name.includes('score') || meta.name.includes('objective') || meta.name.includes('team') || meta.name.includes('display')) {
+                console.log(`[New HUD Packet] ${meta.name}`);
+            }
+        }
+        
+        // Takım verilerini kendimiz yakalıyoruz (Mineflayer'ın çökmesini baypas et)
+        if (meta.name === 'teams' || meta.name === 'scoreboard_team') {
+            if (data.mode === 0) {
+                botInstance.myTeamMap[data.team] = data;
+            } else if (data.mode === 2 && botInstance.myTeamMap[data.team]) {
+                // Update
+                if (data.prefix) botInstance.myTeamMap[data.team].prefix = data.prefix;
+                if (data.suffix) botInstance.myTeamMap[data.team].suffix = data.suffix;
+            } else if (data.mode === 1) {
+                delete botInstance.myTeamMap[data.team];
+            }
+        }
+    });
+
     // Scoreboard Oku
     botInstance.on('scoreUpdated', (scoreboard, item) => {
-        if (ioInstance && botInstance.scoreboards) {
-            // Sadece sağ yandaki tabloyu gönder
-            const board = Object.values(botInstance.scoreboards)[0];
+        if (ioInstance && botInstance.scoreboard && botInstance.scoreboard['1']) {
+            const board = botInstance.scoreboard['1'];
             if (board) {
-                const lines = board.items.map(i => i.displayName.toString());
-                ioInstance.emit('scoreboard_update', { title: board.title.toString(), lines });
+                const parseMessage = (msg) => {
+                    if (!msg) return "";
+                    if (typeof msg === 'string') return msg;
+                    
+                    let out = "";
+                    if (msg.type === 'compound' && msg.value) {
+                        if (msg.value.text && msg.value.text.value) out += msg.value.text.value;
+                        if (msg.value.extra && msg.value.extra.value && Array.isArray(msg.value.extra.value.value)) {
+                            out += msg.value.extra.value.value.map(parseMessage).join('');
+                        }
+                        if (out) return out;
+                    }
+                    
+                    if (msg.text) out += (typeof msg.text === 'string' ? msg.text : parseMessage(msg.text));
+                    if (msg.extra && Array.isArray(msg.extra)) out += msg.extra.map(parseMessage).join('');
+                    if (out) return out;
+
+                    if (msg.toAnsi) return msg.toString();
+                    if (msg.toString && typeof msg.toString === 'function' && msg.toString() !== '[object Object]') return msg.toString();
+                    return JSON.stringify(msg);
+                };
+                
+                const title = board.title ? parseMessage(board.title) : "Scoreboard";
+                const lines = board.items.map(i => {
+                    const text = parseMessage(i.displayName);
+                    return text ? text : i.name;
+                });
+
+                ioInstance.emit('scoreboard_update', { title, lines });
             }
         }
     });
@@ -90,6 +155,8 @@ function startBot(isReconnect = false) {
     const handleDisconnect = (reason) => {
         console.log("[BotManager] Bot bağlantısı koptu. Sebep:", reason);
         botInstance = null;
+        botStartTime = null;
+        disconnectCount++;
         if (ioInstance) ioInstance.emit('bot_online_status', false);
 
         if (botConfig.autoReconnect) {
@@ -105,14 +172,17 @@ function startBot(isReconnect = false) {
 
     botInstance.on('spawn', () => {
         console.log("[BotManager] Bot başarıyla oyuna girdi!");
+        botStartTime = Date.now();
         if (ioInstance) ioInstance.emit('bot_online_status', true);
 
         // Auto-Eat Başlat
         if (botConfig.autoEat) {
-            botInstance.autoEat.options.priority = "foodPoints";
-            botInstance.autoEat.options.bannedFood = [];
-            botInstance.autoEat.options.eatingTimeout = 3000;
-            botInstance.autoEat.enable();
+            botInstance.autoEat.setOpts({
+                priority: "foodPoints",
+                bannedFood: [],
+                eatingTimeout: 3000
+            });
+            botInstance.autoEat.enableAuto();
         }
 
         // Prismarine Viewer Başlat (Port 3000)
@@ -130,6 +200,10 @@ function startBot(isReconnect = false) {
                 if (botInstance) joinTowny(botInstance);
             }, 30000);
         }
+
+        // Auto-Digger Auto-Resume
+        const { checkAutoResume } = require('./autoDigger');
+        checkAutoResume(botInstance);
     });
 
     botInstance.on('autoeat_started', () => {
@@ -159,4 +233,4 @@ function stopBot() {
     return true;
 }
 
-module.exports = { startBot, stopBot, getBot, setIo, updateConfig, getConfig };
+module.exports = { startBot, stopBot, getBot, setIo, updateConfig, getConfig, getBotStats };

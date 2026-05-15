@@ -1,4 +1,5 @@
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
+const { Vec3 } = require('vec3');
 const Chest = require('../Models/Chest');
 
 async function scanChests(bot) {
@@ -30,6 +31,7 @@ async function scanChests(bot) {
     const allItems = {};
     const defaultMove = new Movements(bot);
     defaultMove.canOpenDoors = true;
+    defaultMove.scafoldingBlocks = []; // Blok koymayı engelle
 
     for (let i = 0; i < chestBlocks.length; i++) {
         const chestPos = chestBlocks[i];
@@ -68,7 +70,7 @@ async function scanChests(bot) {
             await Chest.findOneAndUpdate(
                 { serverHost: process.env.HOST || 'localhost', x: chestPos.x, y: chestPos.y, z: chestPos.z },
                 { items: itemsArray, lastScanned: Date.now() },
-                { upsert: true, new: true }
+                { upsert: true, returnDocument: 'after' }
             );
 
             await chest.close();
@@ -118,6 +120,7 @@ async function fetchItem(bot, itemName, amountStr, targetType, targetData) {
 
     const defaultMove = new Movements(bot);
     defaultMove.canOpenDoors = true;
+    defaultMove.scafoldingBlocks = []; // Blok koymayı engelle
 
     for (const chestDoc of targetChests) {
         if (remainingToFetch <= 0) break;
@@ -136,7 +139,8 @@ async function fetchItem(bot, itemName, amountStr, targetType, targetData) {
         try {
             await bot.pathfinder.goto(goal);
             
-            const chestBlock = bot.blockAt({ x: chestDoc.x, y: chestDoc.y, z: chestDoc.z });
+            const vecPos = new Vec3(chestDoc.x, chestDoc.y, chestDoc.z);
+            const chestBlock = bot.blockAt(vecPos);
             const chest = await bot.openContainer(chestBlock);
             
             const itemsToTake = chest.containerItems().filter(i => i.name === itemName);

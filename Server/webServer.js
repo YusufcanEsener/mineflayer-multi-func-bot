@@ -3,8 +3,10 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const Chest = require('../Models/Chest');
-const { startBot, stopBot, getBot, setIo } = require('../Functions/botManager');
+const DiggerStat = require('../Models/DiggerStat');
+const { startBot, stopBot, getBot, setIo, getBotStats } = require('../Functions/botManager');
 const { fetchItem } = require('../Functions/chestScanner');
+const { startDigger, stopDigger, getDiggerStats, saveDiggerPos } = require('../Functions/autoDigger');
 
 function startWebServer() {
     const app = express();
@@ -28,6 +30,35 @@ function startWebServer() {
         try {
             const chests = await Chest.find({ serverHost: process.env.HOST || 'localhost' });
             res.json(chests);
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    });
+
+    app.get('/api/digger/stats', async (req, res) => {
+        try {
+            const host = process.env.HOST || 'localhost';
+            
+            // Son 60 dakikanın verileri (1 dakikalık aralıklarla atıldığı için limit 60 yeterli)
+            const recentStats = await DiggerStat.find({ serverHost: host })
+                .sort({ timestamp: -1 })
+                .limit(60);
+                
+            // Günlük bazda toplulaştırma (Aggregate)
+            const dailyStats = await DiggerStat.aggregate([
+                { $match: { serverHost: host } },
+                {
+                    $group: {
+                        _id: { $dateToString: { format: "%Y-%m-%d", date: "$timestamp" } },
+                        totalBlocks: { $sum: "$blocksMined" },
+                        totalPickaxes: { $sum: "$pickaxesUsed" }
+                    }
+                },
+                { $sort: { _id: 1 } },
+                { $limit: 7 } // Son 7 gün
+            ]);
+            
+            res.json({ recent: recentStats.reverse(), daily: dailyStats });
         } catch (err) {
             res.status(500).json({ error: err.message });
         }
@@ -71,6 +102,18 @@ function startWebServer() {
             }
         });
 
+        // Sandıkları Tarama İsteği
+        socket.on('scan_chests', () => {
+            const bot = getBot();
+            if (bot) {
+                const { scanChests } = require('../Functions/chestScanner');
+                scanChests(bot);
+                socket.emit('system_message', "Sandık taraması başlatıldı!");
+            } else {
+                socket.emit('system_error', "Bot kapalı olduğu için sandıklar taranamıyor.");
+            }
+        });
+
         // Web'den bota mesaj gönderme
         socket.on('send_chat', (msg) => {
             const activeBot = getBot();
@@ -92,6 +135,36 @@ function startWebServer() {
             const stopped = stopBot();
             if (!stopped) {
                 socket.emit('system_error', "Bot zaten kapalı!");
+            }
+        });
+
+        // Oto-Kazıcı İsteği
+        socket.on('start_digger', () => {
+            const bot = getBot();
+            if (bot) {
+                startDigger(bot);
+                socket.emit('system_message', "Oto-Kazıcı başlatıldı!");
+            } else {
+                socket.emit('system_error', "Bot kapalı!");
+            }
+        });
+
+        socket.on('stop_digger', async () => {
+            await stopDigger();
+            socket.emit('system_message', "Oto-Kazıcı durduruldu!");
+        });
+
+        socket.on('save_digger_pos', async () => {
+            const bot = getBot();
+            if (bot) {
+                const saved = await saveDiggerPos(bot);
+                if (saved) {
+                    socket.emit('system_message', "Oto-Kazıcı konumu başarıyla kaydedildi!");
+                } else {
+                    socket.emit('system_error', "Konum alınamadı (Bot yüklenmemiş olabilir).");
+                }
+            } else {
+                socket.emit('system_error', "Bot kapalı!");
             }
         });
 
@@ -157,6 +230,7 @@ function startWebServer() {
         }));
 
         io.emit('bot_status', {
+            isOnline: true,
             health: bot.health,
             food: bot.food,
             position: {
@@ -169,8 +243,46 @@ function startWebServer() {
             equipment: equipment,
             inventory: inventoryItems,
             tps: tps.toFixed(1),
-            ping: bot.player?.ping || 0
+            ping: bot.player?.ping || 0,
+            botStats: getBotStats(),
+            diggerStats: getDiggerStats()
         });
+
+        // Scoreboard gönder (Gizli Takımları Çözümleme)
+        if (bot.myTeamMap) {
+            let manualLines = [];
+            for (let i = 1; i <= 15; i++) {
+                const team = bot.myTeamMap[`TAB-Sidebar-${i}`];
+                if (team) {
+                    const parseMessage = (msg) => {
+                        if (!msg) return "";
+                        if (typeof msg === 'string') return msg;
+                        let out = "";
+                        if (msg.type === 'compound' && msg.value) {
+                            if (msg.value.text && msg.value.text.value) out += msg.value.text.value;
+                            if (msg.value.extra && msg.value.extra.value && Array.isArray(msg.value.extra.value.value)) {
+                                out += msg.value.extra.value.value.map(parseMessage).join('');
+                            }
+                            if (out) return out;
+                        }
+                        if (msg.text) out += (typeof msg.text === 'string' ? msg.text : parseMessage(msg.text));
+                        if (msg.extra && Array.isArray(msg.extra)) out += msg.extra.map(parseMessage).join('');
+                        if (out) return out;
+                        if (msg.toAnsi) return msg.toString();
+                        if (msg.toString && typeof msg.toString === 'function' && msg.toString() !== '[object Object]') return msg.toString();
+                        return JSON.stringify(msg);
+                    };
+                    const prefix = parseMessage(team.prefix);
+                    const suffix = parseMessage(team.suffix);
+                    manualLines.push((prefix + " " + suffix).trim());
+                }
+            }
+            // Çok fazla log spam yapmaması için sadece doluysa yaz
+            if (manualLines.length > 0) {
+                console.log("[Scoreboard] Çözümlenen Satırlar:", manualLines);
+                io.emit('scoreboard_update', { title: "CHICKENNW", lines: manualLines });
+            }
+        }
     }, 1000);
 
     const PORT = process.env.WEB_PORT || 4000;

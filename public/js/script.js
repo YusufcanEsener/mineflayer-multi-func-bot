@@ -15,6 +15,25 @@ btnStop.addEventListener('click', () => {
     socket.emit('stop_bot');
 });
 
+// Digger Controls
+const btnDiggerStart = document.getElementById('btn-digger-start');
+const btnDiggerStop = document.getElementById('btn-digger-stop');
+
+btnDiggerStart.addEventListener('click', () => {
+    socket.emit('start_digger');
+});
+
+btnDiggerStop.addEventListener('click', () => {
+    socket.emit('stop_digger');
+});
+
+const btnSaveDiggerPos = document.getElementById('btn-save-digger-pos');
+if (btnSaveDiggerPos) {
+    btnSaveDiggerPos.addEventListener('click', () => {
+        socket.emit('save_digger_pos');
+    });
+}
+
 socket.on('bot_online_status', (isOnline) => {
     if (isOnline) {
         statusBadge.textContent = "Durum: Çevrimiçi";
@@ -40,6 +59,12 @@ socket.on('bot_online_status', (isOnline) => {
         setHtml('ping-text', '0 ms');
         setHtml('eq-helmet', 'Yok'); setHtml('eq-chest', 'Yok'); setHtml('eq-legs', 'Yok'); setHtml('eq-boots', 'Yok'); setHtml('eq-hand', 'Boş');
         setHtml('inv-list', '');
+        
+        setHtml('uptime-text', '0s');
+        setHtml('digger-status', 'Bekliyor');
+        document.getElementById('digger-status').className = 'badge status-offline';
+        btnDiggerStart.disabled = false;
+        btnDiggerStop.disabled = true;
     }
 });
 
@@ -72,6 +97,7 @@ sidebarNav.forEach(item => {
 
         // If chests tab, load data
         if (tabId === 'chests') loadChests();
+        if (tabId === 'digger') loadDiggerCharts();
     });
 });
 
@@ -124,6 +150,77 @@ socket.on('bot_status', (data) => {
         document.getElementById('eq-hand').innerText = data.equipment.hand;
     }
 
+    // Bot Stats
+    if (data.botStats) {
+        document.getElementById('disconnect-text').innerText = data.botStats.disconnects;
+        
+        // Format uptime
+        const seconds = Math.floor((data.botStats.uptime / 1000) % 60);
+        const minutes = Math.floor((data.botStats.uptime / (1000 * 60)) % 60);
+        const hours = Math.floor((data.botStats.uptime / (1000 * 60 * 60)) % 24);
+        
+        let uptimeStr = '';
+        if (hours > 0) uptimeStr += `${hours}s `;
+        if (minutes > 0) uptimeStr += `${minutes}d `;
+        uptimeStr += `${seconds}sn`;
+        
+        document.getElementById('uptime-text').innerText = uptimeStr;
+    }
+
+    // Digger Stats
+    if (data.diggerStats) {
+        document.getElementById('digger-mined').innerText = data.diggerStats.blocksMined;
+        document.getElementById('digger-pickaxes').innerText = data.diggerStats.pickaxesUsed;
+        
+        // Kayıtlı Konum UI Güncelleme
+        const savedPosText = document.getElementById('saved-pos-text');
+        if (savedPosText) {
+            if (data.diggerStats.savedCoordinate) {
+                const pos = data.diggerStats.savedCoordinate;
+                savedPosText.innerText = `X: ${pos.x}, Y: ${pos.y}, Z: ${pos.z}`;
+                savedPosText.style.color = "#10b981"; // Yeşil
+            } else {
+                savedPosText.innerText = "Kayıt bulunamadı";
+                savedPosText.style.color = "#ef4444"; // Kırmızı
+            }
+        }
+        
+        // Blok Kırılımı UI Güncelleme
+        const breakdownDiv = document.getElementById('digger-breakdown');
+        if (breakdownDiv && data.diggerStats.minedBlocksBreakdown) {
+            const breakdown = data.diggerStats.minedBlocksBreakdown;
+            const entries = Object.entries(breakdown);
+            
+            if (entries.length > 0) {
+                breakdownDiv.innerHTML = '';
+                entries.sort((a, b) => b[1] - a[1]).forEach(([name, count]) => {
+                    const div = document.createElement('div');
+                    div.className = 'inv-item';
+                    div.title = `${name.replace(/_/g, ' ')}`;
+                    div.innerHTML = `
+                        <img src="https://static.minecraftitemids.com/32/${name.toLowerCase()}.png" 
+                             onerror="this.src='https://static.minecraftitemids.com/32/barrier.png'">
+                        <span>${count}</span>
+                    `;
+                    breakdownDiv.appendChild(div);
+                });
+            }
+        }
+        
+        const dStatus = document.getElementById('digger-status');
+        if (data.diggerStats.isActive) {
+            dStatus.innerText = "Çalışıyor";
+            dStatus.className = "badge status-online";
+            btnDiggerStart.disabled = true;
+            btnDiggerStop.disabled = false;
+        } else {
+            dStatus.innerText = "Bekliyor";
+            dStatus.className = "badge status-offline";
+            btnDiggerStart.disabled = false;
+            btnDiggerStop.disabled = true;
+        }
+    }
+
     // Inventory Preview
     // Envanter Tablosu
     const invList = document.getElementById('inv-list');
@@ -149,13 +246,14 @@ socket.on('bot_status', (data) => {
     // Viewer Update
     const viewerOverlay = document.getElementById('viewer-overlay');
     const viewerIframe = document.getElementById('viewer-iframe');
-    if (data.isOnline && viewerIframe.src === "") {
+    const currentSrc = viewerIframe.getAttribute('src');
+    
+    if (data.isOnline && !currentSrc) {
         viewerOverlay.style.display = 'none';
-        // Sunucu localhost üzerinde çalışıyorsa adresi ona göre ayarla
-        viewerIframe.src = `http://${window.location.hostname}:3000`;
+        viewerIframe.setAttribute('src', `http://${window.location.hostname}:3000`);
     } else if (!data.isOnline) {
         viewerOverlay.style.display = 'flex';
-        viewerIframe.src = "";
+        viewerIframe.removeAttribute('src');
     }
 });
 
@@ -169,6 +267,21 @@ socket.on('scoreboard_update', (board) => {
         sb.appendChild(div);
     });
 });
+
+// Chest Scanning
+const btnScanChests = document.getElementById('btn-scan-chests');
+if (btnScanChests) {
+    btnScanChests.addEventListener('click', () => {
+        btnScanChests.disabled = true;
+        btnScanChests.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Taranıyor...';
+        socket.emit('scan_chests');
+        setTimeout(() => {
+            btnScanChests.disabled = false;
+            btnScanChests.innerHTML = '<i class="fas fa-radar"></i> Sandıkları Tara';
+            loadChests(); // Yenile
+        }, 5000); // 5 saniye sonra butonu aç
+    });
+}
 
 // Config Sync
 const toggleReconnect = document.getElementById('toggle-reconnect');
@@ -473,3 +586,98 @@ socket.on('courier_status', (res) => {
         btnFetchCourier.disabled = false;
     }
 });
+
+// --- CHART.JS LOGIC FOR DIGGER ---
+let recentChartInstance = null;
+let dailyChartInstance = null;
+
+async function loadDiggerCharts() {
+    try {
+        const res = await fetch('/api/digger/stats');
+        const data = await res.json();
+        
+        renderRecentChart(data.recent);
+        renderDailyChart(data.daily);
+    } catch (err) {
+        console.error("Grafik verileri yüklenemedi:", err);
+    }
+}
+
+function renderRecentChart(recentData) {
+    const ctx = document.getElementById('diggerRecentChart');
+    if (!ctx) return;
+    
+    // recentData format: [{timestamp, blocksMined, pickaxesUsed}, ...]
+    const labels = recentData.map(d => new Date(d.timestamp).toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'}));
+    const blocksData = recentData.map(d => d.blocksMined);
+    
+    if (recentChartInstance) {
+        recentChartInstance.destroy();
+    }
+    
+    recentChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Kazılan Blok (5Dk)',
+                data: blocksData,
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#9ca3af' } },
+                x: { grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#9ca3af', maxTicksLimit: 10 } }
+            },
+            plugins: {
+                legend: { labels: { color: '#e5e7eb' } }
+            }
+        }
+    });
+}
+
+function renderDailyChart(dailyData) {
+    const ctx = document.getElementById('diggerDailyChart');
+    if (!ctx) return;
+    
+    const labels = dailyData.map(d => d._id); // format: "YYYY-MM-DD"
+    const blocksData = dailyData.map(d => d.totalBlocks);
+    
+    if (dailyChartInstance) {
+        dailyChartInstance.destroy();
+    }
+    
+    dailyChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Günlük Toplam Blok',
+                data: blocksData,
+                backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                borderColor: '#3b82f6',
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#9ca3af' } },
+                x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+            },
+            plugins: {
+                legend: { labels: { color: '#e5e7eb' } }
+            }
+        }
+    });
+}
